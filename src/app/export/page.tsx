@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import { useVocabData } from '@/hooks/useVocabData';
 import { ExportCategory, ExportFormat } from '@/types';
@@ -65,9 +65,7 @@ export default function ExportPage() {
   const [category, setCategory] = useState<ExportCategory>('all');
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
 
-  useEffect(() => {
-    if (isLoaded && settings.webAppUrl) refresh();
-  }, [isLoaded, settings.webAppUrl]);
+
 
   const filteredEntries = filterByCategory(entries, category);
 

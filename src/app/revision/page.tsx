@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import { useVocabData } from '@/hooks/useVocabData';
 import { Category, VocabEntry } from '@/types';
@@ -14,7 +14,6 @@ import {
   CheckCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 
 interface SectionProps {
   category: Category;
@@ -91,9 +90,7 @@ export default function RevisionPage() {
   const { entries, isLoading, error, refresh } = useVocabData(settings.webAppUrl);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (isLoaded && settings.webAppUrl) refresh();
-  }, [isLoaded, settings.webAppUrl]);
+
 
   const owsEntries = entries.filter((e) => e.category === 'OWS');
   const vocabEntries = entries.filter((e) => e.category === 'VOCAB');

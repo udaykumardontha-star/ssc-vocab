@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import { useVocabData } from '@/hooks/useVocabData';
 import { Category } from '@/types';
@@ -37,9 +37,7 @@ export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
 
-  useEffect(() => {
-    if (isLoaded && settings.webAppUrl) refresh();
-  }, [isLoaded, settings.webAppUrl]);
+
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();

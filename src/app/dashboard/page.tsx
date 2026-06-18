@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import { useVocabData } from '@/hooks/useVocabData';
 import { DashboardStatsGrid } from '@/components/dashboard/StatCard';
@@ -14,11 +13,7 @@ export default function DashboardPage() {
     settings.webAppUrl
   );
 
-  useEffect(() => {
-    if (isLoaded && settings.webAppUrl) {
-      refresh();
-    }
-  }, [isLoaded, settings.webAppUrl]);
+
 
   if (!isLoaded) {
     return (

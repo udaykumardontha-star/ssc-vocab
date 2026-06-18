@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Mode, VocabEntry } from '@/types';
 import { ModeSelector } from '@/components/extract/ModeSelector';
 import { ImageUpload } from '@/components/extract/ImageUpload';
 import { ResultsPanel } from '@/components/extract/ResultsPanel';
 import { useSettings } from '@/hooks/useSettings';
-import { useVocabData } from '@/hooks/useVocabData';
 import { extractFromText, extractFromImage, parseGeminiOutput } from '@/services/gemini.service';
-import { saveUniqueEntries } from '@/services/googleSheets.service';
-import { Wand2, FileText, ImageIcon, AlertCircle, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { saveUniqueEntries, invalidateCache } from '@/services/googleSheets.service';
+import { Wand2, FileText, ImageIcon, AlertCircle, ChevronDown, ChevronUp, ClipboardPaste } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -19,7 +18,6 @@ type InputTab = 'text' | 'image';
 
 export default function ExtractPage() {
   const { settings } = useSettings();
-  const { refresh } = useVocabData(settings.webAppUrl);
 
   const [inputTab, setInputTab] = useState<InputTab>('text');
   const [mode, setMode] = useState<Mode>('auto');
@@ -54,6 +52,43 @@ export default function ExtractPage() {
     setEntries([]);
     setSaveResult(null);
   };
+
+  // ─── Page-level Ctrl+V handler: auto-switch to image tab ─────────────────
+  useEffect(() => {
+    const handlePagePaste = (e: ClipboardEvent) => {
+      // Already on image tab with a preview — ImageUpload handles it
+      if (inputTab === 'image' && imagePreviewUrl) return;
+      // Don't intercept text pastes in the textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of Array.from(items)) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          e.preventDefault();
+          // Switch to image tab first, then ImageUpload's own paste handler fires
+          setInputTab('image');
+          const file = item.getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              const result = ev.target?.result as string;
+              const base64 = result.split(',')[1];
+              const objectUrl = URL.createObjectURL(file);
+              handleImageSelected(base64, file.type, objectUrl);
+            };
+            reader.readAsDataURL(file);
+          }
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePagePaste);
+    return () => window.removeEventListener('paste', handlePagePaste);
+  }, [inputTab, imagePreviewUrl]);
 
   const handleProcess = useCallback(async () => {
     if (!settings.geminiApiKey) {
@@ -116,8 +151,8 @@ export default function ExtractPage() {
           toast.info('All entries already exist in your sheet.');
         }
 
-        // Refresh dashboard stats
-        refresh();
+        // Invalidate cache so next page visited fetches fresh data
+        invalidateCache();
       } catch (saveErr) {
         const msg = saveErr instanceof Error ? saveErr.message : 'Failed to save to Google Sheets';
         toast.error(msg);
@@ -130,7 +165,7 @@ export default function ExtractPage() {
       setIsProcessing(false);
       setIsSaving(false);
     }
-  }, [settings, inputTab, textInput, imageBase64, imageMime, mode, refresh]);
+  }, [settings, inputTab, textInput, imageBase64, imageMime, mode]);
 
   const isReady = Boolean(settings.geminiApiKey && settings.webAppUrl);
   const canProcess =
@@ -142,11 +177,18 @@ export default function ExtractPage() {
   return (
     <div className="max-w-5xl space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Extract Vocabulary</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Paste text, upload a screenshot, or enter words — Gemini AI extracts everything automatically
-        </p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Extract Vocabulary</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Paste text, upload or <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted text-xs font-mono">Ctrl+V</kbd> a screenshot — Gemini AI extracts everything automatically
+          </p>
+        </div>
+        {/* Clipboard Hint Badge */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-600/10 text-xs text-violet-300">
+          <ClipboardPaste className="w-3.5 h-3.5" />
+          <span>Ctrl+V anywhere to paste screenshot</span>
+        </div>
       </div>
 
       {/* Config Warning */}
