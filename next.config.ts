@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  // Exclude canvas (pdfjs-dist optional dep, Node-only) from Vercel deployment
+  outputFileTracingExcludes: {
+    '*': ['node_modules/canvas', 'node_modules/canvas/**'],
+  },
 };
 
 export default nextConfig;

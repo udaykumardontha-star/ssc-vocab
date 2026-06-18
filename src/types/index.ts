@@ -47,3 +47,29 @@ export interface DashboardStats {
 
 export type ExportFormat = 'csv' | 'excel' | 'pdf';
 export type ExportCategory = 'all' | 'OWS' | 'VOCAB' | 'IDIOM';
+
+// ─── PDF Processing ────────────────────────────────────────────────────────────
+
+export type PdfRangePreset = 'all' | 'first50' | 'first100' | 'custom';
+
+export interface PdfPageRange {
+  preset: PdfRangePreset;
+  customStart: number;
+  customEnd: number;
+}
+
+export interface PdfTextResult {
+  pages: string[];      // one string per page (index 0 = page 1)
+  totalPages: number;
+  totalChars: number;
+  isScanned: boolean;   // true when avg chars/page < 50
+}
+
+export interface PdfProgress {
+  phase: 'idle' | 'reading' | 'processing' | 'saving' | 'done' | 'error';
+  currentChunk: number;
+  totalChunks: number;
+  message: string;
+  entriesFound: number;
+}
+

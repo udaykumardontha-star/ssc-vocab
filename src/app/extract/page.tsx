@@ -1,20 +1,45 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Mode, VocabEntry } from '@/types';
+import { Mode, VocabEntry, PdfPageRange, PdfTextResult, PdfProgress } from '@/types';
 import { ModeSelector } from '@/components/extract/ModeSelector';
 import { ImageUpload } from '@/components/extract/ImageUpload';
+import { PdfUpload } from '@/components/extract/PdfUpload';
 import { ResultsPanel } from '@/components/extract/ResultsPanel';
 import { useSettings } from '@/hooks/useSettings';
 import { extractFromText, extractFromImage, parseGeminiOutput } from '@/services/gemini.service';
 import { saveUniqueEntries, invalidateCache } from '@/services/googleSheets.service';
-import { Wand2, FileText, ImageIcon, AlertCircle, ChevronDown, ChevronUp, ClipboardPaste } from 'lucide-react';
+import {
+  chunkSelectedPages,
+  processPdfChunks,
+  resolvePageRange,
+} from '@/services/pdfProcessor.service';
+import {
+  Wand2,
+  FileText,
+  ImageIcon,
+  FileUp,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  ClipboardPaste,
+} from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
-type InputTab = 'text' | 'image';
+type InputTab = 'text' | 'image' | 'pdf';
+
+const TAB_CONFIG: {
+  value: InputTab;
+  icon: React.ElementType;
+  label: string;
+}[] = [
+  { value: 'text',  icon: FileText,  label: 'Text' },
+  { value: 'image', icon: ImageIcon, label: 'Image' },
+  { value: 'pdf',   icon: FileUp,    label: 'PDF' },
+];
 
 export default function ExtractPage() {
   const { settings } = useSettings();
@@ -23,19 +48,29 @@ export default function ExtractPage() {
   const [mode, setMode] = useState<Mode>('auto');
   const [textInput, setTextInput] = useState('');
 
-  // Image state
+  // ── Image state ─────────────────────────────────────────────────────────────
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMime, setImageMime] = useState<string>('image/png');
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState<string | null>(null);
   const [showOcr, setShowOcr] = useState(true);
 
-  // Processing state
+  // ── PDF state ────────────────────────────────────────────────────────────────
+  const [pdfResult, setPdfResult] = useState<PdfTextResult | null>(null);
+  const [pdfPageRange, setPdfPageRange] = useState<PdfPageRange>({
+    preset: 'all',
+    customStart: 1,
+    customEnd: 1,
+  });
+  const [pdfProgress, setPdfProgress] = useState<PdfProgress | null>(null);
+
+  // ── Processing state ─────────────────────────────────────────────────────────
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [entries, setEntries] = useState<VocabEntry[]>([]);
   const [saveResult, setSaveResult] = useState<{ added: number; skipped: number } | null>(null);
 
+  // ── Image handlers ───────────────────────────────────────────────────────────
   const handleImageSelected = (base64: string, mimeType: string, previewUrl: string) => {
     setImageBase64(base64);
     setImageMime(mimeType);
@@ -53,7 +88,24 @@ export default function ExtractPage() {
     setSaveResult(null);
   };
 
-  // ─── Page-level Ctrl+V handler: auto-switch to image tab ─────────────────
+  // ── PDF handlers ─────────────────────────────────────────────────────────────
+  const handlePdfLoad = (result: PdfTextResult) => {
+    setPdfResult(result);
+    // Reset page range to "all" when a new PDF is loaded
+    setPdfPageRange({ preset: 'all', customStart: 1, customEnd: result.totalPages });
+    setEntries([]);
+    setSaveResult(null);
+    setPdfProgress(null);
+  };
+
+  const handlePdfClear = () => {
+    setPdfResult(null);
+    setPdfProgress(null);
+    setEntries([]);
+    setSaveResult(null);
+  };
+
+  // ── Page-level Ctrl+V handler: auto-switch to image tab ──────────────────────
   useEffect(() => {
     const handlePagePaste = (e: ClipboardEvent) => {
       // Already on image tab with a preview — ImageUpload handles it
@@ -68,7 +120,6 @@ export default function ExtractPage() {
       for (const item of Array.from(items)) {
         if (item.kind === 'file' && item.type.startsWith('image/')) {
           e.preventDefault();
-          // Switch to image tab first, then ImageUpload's own paste handler fires
           setInputTab('image');
           const file = item.getAsFile();
           if (file) {
@@ -90,6 +141,7 @@ export default function ExtractPage() {
     return () => window.removeEventListener('paste', handlePagePaste);
   }, [inputTab, imagePreviewUrl]);
 
+  // ── Main process handler ──────────────────────────────────────────────────────
   const handleProcess = useCallback(async () => {
     if (!settings.geminiApiKey) {
       toast.error('Gemini API key not configured. Go to Settings.');
@@ -100,6 +152,91 @@ export default function ExtractPage() {
       return;
     }
 
+    // ── PDF branch ─────────────────────────────────────────────────────────────
+    if (inputTab === 'pdf') {
+      if (!pdfResult) {
+        toast.error('Please upload a PDF first.');
+        return;
+      }
+
+      const { startPage, endPage } = resolvePageRange(pdfPageRange, pdfResult.totalPages);
+      const chunks = chunkSelectedPages(pdfResult.pages, startPage, endPage);
+
+      if (chunks.length === 0) {
+        toast.error('Selected page range contains no text to process.');
+        return;
+      }
+
+      setIsProcessing(true);
+      setSaveResult(null);
+      setEntries([]);
+      setPdfProgress({
+        phase: 'processing',
+        currentChunk: 0,
+        totalChunks: chunks.length,
+        message: `Starting — ${chunks.length} chunk${chunks.length !== 1 ? 's' : ''} to process...`,
+        entriesFound: 0,
+      });
+
+      try {
+        const allEntries = await processPdfChunks(
+          chunks,
+          mode,
+          settings.geminiApiKey,
+          (p) => setPdfProgress(p)
+        );
+
+        if (allEntries.length === 0) {
+          toast.warning('No vocabulary entries found in the selected pages. Try a different mode or page range.');
+          setIsProcessing(false);
+          setPdfProgress(null);
+          return;
+        }
+
+        setEntries(allEntries);
+        setIsProcessing(false);
+
+        // Auto-save
+        setIsSaving(true);
+        setPdfProgress({
+          phase: 'saving',
+          currentChunk: chunks.length,
+          totalChunks: chunks.length,
+          message: 'Saving to Google Sheets...',
+          entriesFound: allEntries.length,
+        });
+
+        try {
+          const result = await saveUniqueEntries(settings.webAppUrl, allEntries);
+          setSaveResult({ added: result.added, skipped: result.skipped });
+
+          if (result.added > 0 || result.skipped > 0) {
+            toast.success(
+              `${result.added} new ${result.added === 1 ? 'entry' : 'entries'} added` +
+              `${result.skipped > 0 ? `, ${result.skipped} duplicate${result.skipped > 1 ? 's' : ''} skipped` : ''}`
+            );
+          } else {
+            toast.info('All entries already exist in your sheet.');
+          }
+
+          invalidateCache();
+        } catch (saveErr) {
+          toast.error(saveErr instanceof Error ? saveErr.message : 'Failed to save to Google Sheets');
+        } finally {
+          setIsSaving(false);
+          setPdfProgress(null);
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'PDF processing failed');
+        setIsProcessing(false);
+        setIsSaving(false);
+        setPdfProgress(null);
+      }
+
+      return;
+    }
+
+    // ── Text / Image branch (unchanged) ────────────────────────────────────────
     if (inputTab === 'text' && !textInput.trim()) {
       toast.error('Please enter some text to process.');
       return;
@@ -151,7 +288,6 @@ export default function ExtractPage() {
           toast.info('All entries already exist in your sheet.');
         }
 
-        // Invalidate cache so next page visited fetches fresh data
         invalidateCache();
       } catch (saveErr) {
         const msg = saveErr instanceof Error ? saveErr.message : 'Failed to save to Google Sheets';
@@ -165,23 +301,56 @@ export default function ExtractPage() {
       setIsProcessing(false);
       setIsSaving(false);
     }
-  }, [settings, inputTab, textInput, imageBase64, imageMime, mode]);
+  }, [settings, inputTab, textInput, imageBase64, imageMime, mode, pdfResult, pdfPageRange]);
 
+  // ── Derived state ─────────────────────────────────────────────────────────────
   const isReady = Boolean(settings.geminiApiKey && settings.webAppUrl);
+
   const canProcess =
     isReady &&
     !isProcessing &&
     !isSaving &&
-    (inputTab === 'text' ? textInput.trim().length > 0 : imageBase64 !== null);
+    (inputTab === 'text'
+      ? textInput.trim().length > 0
+      : inputTab === 'image'
+      ? imageBase64 !== null
+      : pdfResult !== null); // PDF tab
+
+  if (!isReady) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Extract Vocabulary</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Paste text, upload an image, or upload a PDF — Gemini AI extracts everything automatically
+          </p>
+        </div>
+        <div className="rounded-xl border border-amber-500/30 bg-amber-600/10 p-4 flex gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm text-amber-300">
+            Please{' '}
+            <Link href="/settings" className="underline hover:text-amber-200">
+              configure your API keys
+            </Link>{' '}
+            before extracting.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-5xl space-y-6">
-      {/* Header */}
+    <div className="space-y-6 max-w-7xl">
+      {/* Page Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Extract Vocabulary</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Paste text, upload or <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted text-xs font-mono">Ctrl+V</kbd> a screenshot — Gemini AI extracts everything automatically
+            Paste text, upload or{' '}
+            <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted text-xs font-mono">
+              Ctrl+V
+            </kbd>{' '}
+            a screenshot — Gemini AI extracts everything automatically
           </p>
         </div>
         {/* Clipboard Hint Badge */}
@@ -190,18 +359,6 @@ export default function ExtractPage() {
           <span>Ctrl+V anywhere to paste screenshot</span>
         </div>
       </div>
-
-      {/* Config Warning */}
-      {!isReady && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-600/10 p-4 flex gap-3">
-          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div className="flex-1 text-sm text-amber-300">
-            Please{' '}
-            <Link href="/settings" className="underline hover:text-amber-200">configure your API keys</Link>{' '}
-            before extracting.
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT: Input Panel */}
@@ -216,25 +373,27 @@ export default function ExtractPage() {
 
           {/* Input Type Tabs */}
           <div>
-            <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border w-fit mb-4">
-              {(['text', 'image'] as InputTab[]).map((tab) => (
+            {/* Tab bar — 3 tabs */}
+            <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border mb-4">
+              {TAB_CONFIG.map(({ value, icon: Icon, label }) => (
                 <button
-                  key={tab}
-                  onClick={() => setInputTab(tab)}
+                  key={value}
+                  onClick={() => setInputTab(value)}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all capitalize',
-                    inputTab === tab
+                    'flex flex-1 items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all',
+                    inputTab === value
                       ? 'bg-card text-foreground shadow-sm border border-border'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {tab === 'text' ? <FileText className="w-3.5 h-3.5" /> : <ImageIcon className="w-3.5 h-3.5" />}
-                  {tab === 'text' ? 'Text Input' : 'Screenshot'}
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{label}</span>
                 </button>
               ))}
             </div>
 
-            {inputTab === 'text' ? (
+            {/* Tab Content */}
+            {inputTab === 'text' && (
               <Textarea
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
@@ -242,7 +401,9 @@ export default function ExtractPage() {
                 className="min-h-[280px] text-sm font-mono bg-card border-border resize-y"
                 disabled={isProcessing || isSaving}
               />
-            ) : (
+            )}
+
+            {inputTab === 'image' && (
               <ImageUpload
                 onImageSelected={handleImageSelected}
                 onClear={handleClearImage}
@@ -250,10 +411,22 @@ export default function ExtractPage() {
                 isProcessing={isProcessing}
               />
             )}
+
+            {inputTab === 'pdf' && (
+              <PdfUpload
+                pdfResult={pdfResult}
+                pageRange={pdfPageRange}
+                progress={pdfProgress}
+                onFileLoad={handlePdfLoad}
+                onClear={handlePdfClear}
+                onPageRangeChange={setPdfPageRange}
+                isProcessing={isProcessing || isSaving}
+              />
+            )}
           </div>
 
-          {/* OCR Preview */}
-          {ocrText && (
+          {/* OCR Preview (Image tab only) */}
+          {inputTab === 'image' && ocrText && (
             <div className="rounded-xl border border-border bg-card overflow-hidden">
               <button
                 onClick={() => setShowOcr(!showOcr)}
@@ -284,7 +457,9 @@ export default function ExtractPage() {
             {isProcessing ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Extracting...
+                {inputTab === 'pdf' && pdfProgress
+                  ? `Chunk ${pdfProgress.currentChunk} / ${pdfProgress.totalChunks}`
+                  : 'Extracting...'}
               </>
             ) : isSaving ? (
               <>
@@ -294,16 +469,20 @@ export default function ExtractPage() {
             ) : (
               <>
                 <Wand2 className="w-4 h-4" />
-                Extract & Save
+                Extract &amp; Save
               </>
             )}
           </button>
 
-          {/* Mode hint */}
+          {/* Mode / PDF hint */}
           <div className="flex items-start gap-2 text-xs text-muted-foreground">
             <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>
-              {mode === 'auto'
+              {inputTab === 'pdf'
+                ? pdfResult
+                  ? 'PDF loaded. Select page range and click Extract & Save to process.'
+                  : 'Upload a PDF to extract vocabulary from SSC books, question papers, and study material.'
+                : mode === 'auto'
                 ? 'Auto mode: Gemini will automatically detect and classify OWS, vocabulary, and idioms.'
                 : mode === 'ows'
                 ? 'OWS mode: Input one word per line or a passage containing one-word substitutions.'
