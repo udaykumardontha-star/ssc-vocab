@@ -141,21 +141,23 @@ export default function SearchPage() {
                 {filtered.map((entry, i) => (
                   <div
                     key={`${entry.category}-${entry.word}-${i}`}
-                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-accent/50 transition-colors animate-fade-in-up group"
+                    className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-3 sm:px-5 py-3 sm:py-3.5 hover:bg-accent/50 transition-colors animate-fade-in-up group"
                   >
-                    <span className={cn(
-                      'text-xs font-mono font-bold px-2 py-0.5 rounded border shrink-0',
-                      badgeStyle[entry.category]
-                    )}>
-                      {entry.category}
-                    </span>
-                    <span className="text-sm font-semibold text-foreground min-w-[140px]">
-                      {highlightMatch(entry.word, query)}
-                    </span>
-                    {entry.category === 'IDIOM' ? (
-                      <span className="text-muted-foreground text-sm mr-1">:</span>
-                    ) : null}
-                    <span className="text-sm text-muted-foreground">
+                    {/* Badge + word — always on first line */}
+                    <div className="flex items-center gap-2 sm:contents">
+                      <span className={cn(
+                        'text-xs font-mono font-bold px-2 py-0.5 rounded border shrink-0',
+                        badgeStyle[entry.category]
+                      )}>
+                        {entry.category}
+                      </span>
+                      <span className="text-sm font-semibold text-foreground sm:min-w-[140px] truncate">
+                        {highlightMatch(entry.word, query)}
+                      </span>
+                    </div>
+                    {/* Trigger — inline on sm+, second line on mobile */}
+                    <span className="text-sm text-muted-foreground pl-1 sm:pl-0 truncate">
+                      {entry.category === 'IDIOM' && <span className="text-muted-foreground mr-1 hidden sm:inline">:</span>}
                       {highlightMatch(entry.trigger, query)}
                     </span>
                   </div>

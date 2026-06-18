@@ -74,7 +74,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 max-w-7xl">
       {/* Page Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -157,19 +157,21 @@ export default function DashboardPage() {
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="divide-y divide-border">
               {entries.slice(-10).reverse().map((entry, i) => (
-                <div key={i} className="flex items-center gap-4 px-5 py-3 hover:bg-accent/50 transition-colors">
-                  <span className={cn(
-                    'text-xs font-mono font-bold px-2 py-0.5 rounded border',
-                    entry.category === 'OWS'
-                      ? 'text-violet-300 bg-violet-600/15 border-violet-500/30'
-                      : entry.category === 'VOCAB'
-                      ? 'text-emerald-300 bg-emerald-600/15 border-emerald-500/30'
-                      : 'text-amber-300 bg-amber-600/15 border-amber-500/30'
-                  )}>
-                    {entry.category}
-                  </span>
-                  <span className="text-sm font-medium text-foreground min-w-[120px]">{entry.word}</span>
-                  <span className="text-sm text-muted-foreground">{entry.trigger}</span>
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-3 sm:px-5 py-3 hover:bg-accent/50 transition-colors">
+                  <div className="flex items-center gap-2 sm:contents">
+                    <span className={cn(
+                      'text-xs font-mono font-bold px-2 py-0.5 rounded border shrink-0',
+                      entry.category === 'OWS'
+                        ? 'text-violet-300 bg-violet-600/15 border-violet-500/30'
+                        : entry.category === 'VOCAB'
+                        ? 'text-emerald-300 bg-emerald-600/15 border-emerald-500/30'
+                        : 'text-amber-300 bg-amber-600/15 border-amber-500/30'
+                    )}>
+                      {entry.category}
+                    </span>
+                    <span className="text-sm font-medium text-foreground truncate sm:min-w-[120px]">{entry.word}</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground truncate pl-1 sm:pl-0">{entry.trigger}</span>
                 </div>
               ))}
             </div>

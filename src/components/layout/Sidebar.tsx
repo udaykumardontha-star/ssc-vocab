@@ -32,8 +32,9 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'relative flex flex-col h-screen border-r border-border transition-all duration-300 ease-in-out shrink-0',
+        'relative flex-col h-screen border-r border-border transition-all duration-300 ease-in-out shrink-0',
         'bg-[oklch(0.12_0.025_270)]',
+        'hidden lg:flex',          // ← hidden on mobile, flex on lg+
         collapsed ? 'w-16' : 'w-60'
       )}
     >

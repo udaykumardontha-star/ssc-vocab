@@ -53,9 +53,9 @@ function RevisionSection({ category, entries }: SectionProps) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Section Header */}
-      <div className={cn('flex items-center gap-3 px-6 py-4 border-b border-border', config.headerClass)}>
+      <div className={cn('flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-border', config.headerClass)}>
         <Icon className="w-5 h-5" />
-        <h2 className="text-sm font-bold tracking-widest uppercase">{config.title}</h2>
+        <h2 className="text-xs sm:text-sm font-bold tracking-widest uppercase">{config.title}</h2>
         <span className="ml-auto text-xs font-mono opacity-60">{entries.length} entries</span>
       </div>
 
@@ -64,18 +64,18 @@ function RevisionSection({ category, entries }: SectionProps) {
         {entries.map((entry, i) => (
           <div
             key={`${entry.word}-${i}`}
-            className="flex items-baseline px-6 py-3 hover:bg-accent/30 transition-colors"
+            className="flex items-baseline px-3 sm:px-6 py-3 hover:bg-accent/30 transition-colors"
           >
             {category === 'IDIOM' ? (
-              <div className="flex items-baseline gap-2 font-mono text-sm w-full">
-                <span className={cn('flex-1', config.wordClass)}>{entry.word}</span>
-                <span className="text-muted-foreground shrink-0">:</span>
-                <span className={cn('flex-1 text-right sm:text-left', config.triggerClass)}>{entry.trigger}</span>
+              <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2 font-mono text-sm w-full">
+                <span className={cn('sm:flex-1', config.wordClass)}>{entry.word}</span>
+                <span className="text-muted-foreground shrink-0 hidden sm:inline">:</span>
+                <span className={cn('text-xs sm:text-sm sm:flex-1 sm:text-left', config.triggerClass)}>{entry.trigger}</span>
               </div>
             ) : (
-              <div className="flex items-baseline gap-4 font-mono text-sm w-full">
-                <span className={cn('w-48 shrink-0', config.wordClass)}>{entry.word}</span>
-                <span className={config.triggerClass}>{entry.trigger}</span>
+              <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-4 font-mono text-sm w-full">
+                <span className={cn('sm:w-48 sm:shrink-0', config.wordClass)}>{entry.word}</span>
+                <span className={cn('text-xs sm:text-sm', config.triggerClass)}>{entry.trigger}</span>
               </div>
             )}
           </div>

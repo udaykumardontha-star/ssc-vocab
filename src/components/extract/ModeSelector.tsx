@@ -28,7 +28,7 @@ const inactiveColor = 'border-border bg-card text-muted-foreground hover:bg-acce
 
 export function ModeSelector({ selected, onChange }: ModeSelectorProps) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
       {modes.map(({ value, label, desc, color }) => {
         const isActive = selected === value;
         return (
@@ -36,15 +36,15 @@ export function ModeSelector({ selected, onChange }: ModeSelectorProps) {
             key={value}
             onClick={() => onChange(value)}
             className={cn(
-              'flex flex-col items-center px-4 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200',
-              'min-w-[90px] cursor-pointer',
+              'flex flex-col items-center px-2 sm:px-4 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200',
+              'sm:min-w-[90px] cursor-pointer',
               isActive
                 ? cn(colorMap[color], 'shadow-md scale-[1.03]')
                 : inactiveColor
             )}
           >
             <span className="font-semibold text-sm">{label}</span>
-            <span className="text-xs opacity-70 mt-0.5 whitespace-nowrap">{desc}</span>
+            <span className="text-xs opacity-70 mt-0.5 whitespace-nowrap hidden sm:block">{desc}</span>
           </button>
         );
       })}

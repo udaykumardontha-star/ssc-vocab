@@ -151,7 +151,7 @@ export function ImageUpload({ onImageSelected, onClear, previewUrl, isProcessing
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         className={cn(
-          'border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200',
+          'border-2 border-dashed rounded-xl p-5 sm:p-8 text-center cursor-pointer transition-all duration-200',
           isDragging
             ? 'border-violet-500 bg-violet-600/10 scale-[1.01]'
             : 'border-border hover:border-violet-500/50 hover:bg-accent/40'

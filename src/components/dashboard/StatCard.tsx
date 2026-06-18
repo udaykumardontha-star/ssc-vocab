@@ -71,7 +71,7 @@ export function StatCard({ title, value, icon: Icon, color, subtitle }: StatCard
   return (
     <div
       className={cn(
-        'relative rounded-xl border p-5 transition-all duration-300 hover:scale-[1.02] cursor-default',
+        'relative rounded-xl border p-3 sm:p-5 transition-all duration-300 hover:scale-[1.02] cursor-default',
         'bg-card shadow-lg',
         c.border,
         c.glow,
@@ -84,7 +84,7 @@ export function StatCard({ title, value, icon: Icon, color, subtitle }: StatCard
         </div>
       </div>
       <div>
-        <p className={cn('text-3xl font-bold tabular-nums', c.value)}>
+        <p className={cn('text-2xl sm:text-3xl font-bold tabular-nums', c.value)}>
           {value.toLocaleString()}
         </p>
         <p className="text-sm font-medium text-foreground mt-1">{title}</p>
@@ -102,7 +102,7 @@ interface DashboardStatsGridProps {
 
 export function DashboardStatsGrid({ stats }: DashboardStatsGridProps) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
       <StatCard
         title="One Word Sub."
         value={stats.totalOWS}

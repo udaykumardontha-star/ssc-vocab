@@ -184,17 +184,17 @@ export default function SettingsPage() {
       </div>
 
       {/* API Keys Form */}
-      <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+      <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-6">
         <div className="text-sm font-semibold text-foreground border-b border-border pb-3">
           API Configuration
         </div>
 
         {/* Gemini API Key */}
         <div className="space-y-2">
-          <Label htmlFor="gemini-key" className="flex items-center gap-2 text-sm">
+          <Label htmlFor="gemini-key" className="flex flex-wrap items-center gap-2 text-sm">
             <KeyRound className="w-4 h-4 text-violet-400" />
             Gemini API Key
-            <span className="ml-auto text-xs text-muted-foreground font-normal">Required</span>
+            <span className="text-xs text-muted-foreground font-normal">Required</span>
           </Label>
           <div className="relative">
             <Input
@@ -228,10 +228,10 @@ export default function SettingsPage() {
 
         {/* Web App URL */}
         <div className="space-y-2">
-          <Label htmlFor="webapp-url" className="flex items-center gap-2 text-sm">
+          <Label htmlFor="webapp-url" className="flex flex-wrap items-center gap-2 text-sm">
             <Link2 className="w-4 h-4 text-emerald-400" />
             Google Apps Script Web App URL
-            <span className="ml-auto text-xs text-muted-foreground font-normal">Required</span>
+            <span className="text-xs text-muted-foreground font-normal">Required</span>
           </Label>
           <Input
             id="webapp-url"

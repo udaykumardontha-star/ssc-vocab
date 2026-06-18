@@ -148,7 +148,7 @@ export default function ExportPage() {
             onClick={() => handleExport(format)}
             disabled={!!exporting || filteredEntries.length === 0}
             className={cn(
-              'w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed',
+              'w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[60px]',
               colorMap[color]
             )}
           >
