@@ -8,6 +8,8 @@ import {
   Layers,
   CalendarDays,
   TrendingUp,
+  Layers2,
+  Network,
   LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -102,7 +104,7 @@ interface DashboardStatsGridProps {
 
 export function DashboardStatsGrid({ stats }: DashboardStatsGridProps) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4">
       <StatCard
         title="One Word Sub."
         value={stats.totalOWS}
@@ -144,6 +146,20 @@ export function DashboardStatsGrid({ stats }: DashboardStatsGridProps) {
         icon={TrendingUp}
         color="cyan"
         subtitle="Last 7 days"
+      />
+      <StatCard
+        title="Groups"
+        value={stats.totalGroups}
+        icon={Layers2}
+        color="purple"
+        subtitle="Vocab groups"
+      />
+      <StatCard
+        title="Group Words"
+        value={stats.totalGroupWords}
+        icon={Network}
+        color="emerald"
+        subtitle="Related + opposite"
       />
     </div>
   );

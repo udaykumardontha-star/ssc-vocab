@@ -111,7 +111,7 @@ export function useVocabData(webAppUrl: string) {
     const todayAdded = entries.filter((e) => e.createdAt && e.createdAt >= todayStart).length;
     const weekAdded = entries.filter((e) => e.createdAt && e.createdAt >= weekStart).length;
 
-    return { totalOWS, totalVocab, totalIdioms, totalUnique, todayAdded, weekAdded };
+    return { totalOWS, totalVocab, totalIdioms, totalUnique, todayAdded, weekAdded, totalGroups: 0, totalGroupWords: 0 };
   })();
 
   const getByCategory = (category: Category) =>

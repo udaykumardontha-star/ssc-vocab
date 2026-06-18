@@ -2,6 +2,7 @@
 
 import { useSettings } from '@/hooks/useSettings';
 import { useVocabData } from '@/hooks/useVocabData';
+import { useVocabGroups } from '@/hooks/useVocabGroups';
 import { DashboardStatsGrid } from '@/components/dashboard/StatCard';
 import { AlertCircle, RefreshCw, Settings, Zap } from 'lucide-react';
 import Link from 'next/link';
@@ -9,9 +10,13 @@ import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { settings, isLoaded } = useSettings();
-  const { stats, entries, isLoading, error, refresh, lastFetched } = useVocabData(
+  const { stats: vocabStats, entries, isLoading, error, refresh, lastFetched } = useVocabData(
     settings.webAppUrl
   );
+  const { totalGroups, totalGroupWords } = useVocabGroups(settings.webAppUrl, settings.geminiApiKey);
+
+  // Merge group stats into the dashboard stats
+  const stats = { ...vocabStats, totalGroups, totalGroupWords };
 
 
 

@@ -13,6 +13,7 @@ import {
   GraduationCap,
   Menu,
   X,
+  Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +22,7 @@ const navItems = [
   { href: '/extract',   label: 'Extract',   icon: Wand2 },
   { href: '/search',    label: 'Search',    icon: Search },
   { href: '/revision',  label: 'Revision',  icon: BookOpen },
+  { href: '/groups',    label: 'Groups',    icon: Layers },
   { href: '/export',    label: 'Export',    icon: Download },
   { href: '/settings',  label: 'Settings',  icon: Settings },
 ];
@@ -31,6 +33,7 @@ const pageTitles: Record<string, string> = {
   '/extract':   'Extract',
   '/search':    'Search',
   '/revision':  'Revision',
+  '/groups':    'Groups',
   '/export':    'Export',
   '/settings':  'Settings',
 };

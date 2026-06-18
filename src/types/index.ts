@@ -41,6 +41,8 @@ export interface DashboardStats {
   totalUnique: number;
   todayAdded: number;
   weekAdded: number;
+  totalGroups: number;
+  totalGroupWords: number;
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────

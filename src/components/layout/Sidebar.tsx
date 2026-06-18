@@ -12,6 +12,7 @@ import {
   GraduationCap,
   ChevronLeft,
   ChevronRight,
+  Layers,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -21,6 +22,7 @@ const navItems = [
   { href: '/extract', label: 'Extract', icon: Wand2 },
   { href: '/search', label: 'Search', icon: Search },
   { href: '/revision', label: 'Revision', icon: BookOpen },
+  { href: '/groups', label: 'Groups', icon: Layers },
   { href: '/export', label: 'Export', icon: Download },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

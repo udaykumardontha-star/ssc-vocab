@@ -1,20 +1,24 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import { useVocabData } from '@/hooks/useVocabData';
-import { Category } from '@/types';
-import { Search, RefreshCw, Filter, BookMarked, BookOpen, MessageSquareQuote } from 'lucide-react';
+import { useVocabGroups } from '@/hooks/useVocabGroups';
+import { Category, VocabEntry } from '@/types';
+import { VocabularyGroup } from '@/types/vocabulary-group';
+import { Search, RefreshCw, Filter, Layers } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { VocabularyGroupDialog } from '@/components/groups/VocabularyGroupDialog';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 type CategoryFilter = 'all' | Category;
 
-const categoryFilters: { value: CategoryFilter; label: string; color: string }[] = [
-  { value: 'all', label: 'All', color: 'default' },
-  { value: 'OWS', label: 'OWS', color: 'violet' },
-  { value: 'VOCAB', label: 'Vocabulary', color: 'emerald' },
-  { value: 'IDIOM', label: 'Idioms', color: 'amber' },
+const categoryFilters: { value: CategoryFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'OWS', label: 'OWS' },
+  { value: 'VOCAB', label: 'Vocabulary' },
+  { value: 'IDIOM', label: 'Idioms' },
 ];
 
 const categoryStyle: Record<CategoryFilter, string> = {
@@ -31,13 +35,21 @@ const badgeStyle: Record<Category, string> = {
 };
 
 export default function SearchPage() {
-  const { settings, isLoaded } = useSettings();
+  const { settings } = useSettings();
   const { entries, isLoading, error, refresh } = useVocabData(settings.webAppUrl);
+  const { getGroupForWord, createGroup } = useVocabGroups(
+    settings.webAppUrl,
+    settings.geminiApiKey
+  );
 
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
 
-
+  // ── Vocabulary Group Dialog state ──────────────────────────────────────────
+  const [dialogEntry, setDialogEntry] = useState<VocabEntry | null>(null);
+  const [dialogGroup, setDialogGroup] = useState<VocabularyGroup | null>(null);
+  const [dialogLoading, setDialogLoading] = useState(false);
+  const [dialogError, setDialogError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -48,6 +60,47 @@ export default function SearchPage() {
       return matchQuery && matchCat;
     });
   }, [entries, query, categoryFilter]);
+
+  // ── Open vocabulary group dialog ───────────────────────────────────────────
+  const handleViewGroup = useCallback(async (entry: VocabEntry) => {
+    if (!settings.geminiApiKey) {
+      toast.error('Gemini API key not configured. Go to Settings.');
+      return;
+    }
+
+    setDialogEntry(entry);
+    setDialogGroup(null);
+    setDialogError(null);
+
+    // Check cache first
+    const cached = getGroupForWord(entry.word);
+    if (cached) {
+      setDialogGroup(cached);
+      return;
+    }
+
+    // Generate via Gemini
+    setDialogLoading(true);
+    try {
+      const generated = await createGroup(entry.word, entry.trigger);
+      if (generated) {
+        setDialogGroup(generated);
+      } else {
+        setDialogError('Could not generate a vocabulary group. Please try again.');
+      }
+    } catch (err) {
+      setDialogError(err instanceof Error ? err.message : 'Failed to generate group');
+    } finally {
+      setDialogLoading(false);
+    }
+  }, [settings.geminiApiKey, getGroupForWord, createGroup]);
+
+  const handleCloseDialog = useCallback(() => {
+    setDialogEntry(null);
+    setDialogGroup(null);
+    setDialogError(null);
+    setDialogLoading(false);
+  }, []);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -125,6 +178,12 @@ export default function SearchPage() {
                 ? `${filtered.length} result${filtered.length !== 1 ? 's' : ''} for "${query}"`
                 : `Showing ${filtered.length} of ${entries.length} entries`}
             </p>
+            {categoryFilter === 'VOCAB' && (
+              <p className="text-xs text-emerald-400/70 flex items-center gap-1">
+                <Layers className="w-3 h-3" />
+                Click View Group on any word
+              </p>
+            )}
           </div>
 
           {/* Result List */}
@@ -141,9 +200,9 @@ export default function SearchPage() {
                 {filtered.map((entry, i) => (
                   <div
                     key={`${entry.category}-${entry.word}-${i}`}
-                    className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-3 sm:px-5 py-3 sm:py-3.5 hover:bg-accent/50 transition-colors animate-fade-in-up group"
+                    className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 px-3 sm:px-5 py-3 sm:py-3.5 hover:bg-accent/50 transition-colors animate-fade-in-up group"
                   >
-                    {/* Badge + word — always on first line */}
+                    {/* Badge + word */}
                     <div className="flex items-center gap-2 sm:contents">
                       <span className={cn(
                         'text-xs font-mono font-bold px-2 py-0.5 rounded border shrink-0',
@@ -155,17 +214,47 @@ export default function SearchPage() {
                         {highlightMatch(entry.word, query)}
                       </span>
                     </div>
-                    {/* Trigger — inline on sm+, second line on mobile */}
-                    <span className="text-sm text-muted-foreground pl-1 sm:pl-0 truncate">
+
+                    {/* Trigger */}
+                    <span className="text-sm text-muted-foreground pl-1 sm:pl-0 flex-1 truncate">
                       {entry.category === 'IDIOM' && <span className="text-muted-foreground mr-1 hidden sm:inline">:</span>}
                       {highlightMatch(entry.trigger, query)}
                     </span>
+
+                    {/* View Group button — VOCAB only */}
+                    {entry.category === 'VOCAB' && (
+                      <button
+                        onClick={() => handleViewGroup(entry)}
+                        className={cn(
+                          'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all shrink-0',
+                          'border-emerald-500/30 bg-emerald-600/8 text-emerald-400',
+                          'hover:bg-emerald-600/20 hover:border-emerald-500/50 hover:text-emerald-300',
+                          'opacity-0 group-hover:opacity-100 sm:opacity-100'
+                        )}
+                        title="View vocabulary group"
+                      >
+                        <Layers className="w-3 h-3" />
+                        <span className="hidden sm:inline">Group</span>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
         </div>
+      )}
+
+      {/* Vocabulary Group Dialog */}
+      {dialogEntry && (
+        <VocabularyGroupDialog
+          word={dialogEntry.word}
+          trigger={dialogEntry.trigger}
+          group={dialogGroup}
+          isLoading={dialogLoading}
+          error={dialogError}
+          onClose={handleCloseDialog}
+        />
       )}
     </div>
   );
