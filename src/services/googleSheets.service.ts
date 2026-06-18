@@ -58,7 +58,9 @@ export function isCacheStale(cache: VocabCache): boolean {
 function rowToEntry(row: string[], category: Category): VocabEntry | null {
   const word = String(row[0] ?? '').trim();
   const trigger = String(row[1] ?? '').trim();
-  const createdAt = String(row[2] ?? '').trim();
+  // CreatedAt: read from column Z (index 25) — new rows
+  // Fallback to column C (index 2) — rows saved before the column Z fix
+  const createdAt = String(row[25] ?? row[2] ?? '').trim();
 
   if (!word || !trigger) return null;
   // Skip header rows

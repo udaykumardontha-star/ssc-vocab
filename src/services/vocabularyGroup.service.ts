@@ -238,8 +238,8 @@ export async function generateGroup(
   trigger: string,
   apiKey: string
 ): Promise<VocabularyGroup | null> {
-  const GEMINI_MODEL = 'gemini-2.0-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const GEMINI_GROUP_MODEL = 'gemini-3.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_GROUP_MODEL}:generateContent?key=${apiKey}`;
 
   const body = {
     contents: [{ parts: [{ text: GROUP_PROMPT(word, trigger) }] }],
