@@ -8,7 +8,7 @@ import { PdfUpload } from '@/components/extract/PdfUpload';
 import { ResultsPanel } from '@/components/extract/ResultsPanel';
 import { useSettings } from '@/hooks/useSettings';
 import { extractFromText, extractFromImage, parseGeminiOutput } from '@/services/gemini.service';
-import { saveUniqueEntries, invalidateCache } from '@/services/googleSheets.service';
+import { saveUniqueEntries } from '@/services/googleSheets.service';
 import { autoGenerateGroups } from '@/services/vocabularyGroup.service';
 import {
   chunkSelectedPages,
@@ -220,8 +220,6 @@ export default function ExtractPage() {
             toast.info('All entries already exist in your sheet.');
           }
 
-          invalidateCache();
-
           // Auto-generate groups for new VOCAB entries in background
           const newVocab = allEntries.filter((e) => e.category === 'VOCAB');
           if (newVocab.length > 0 && settings.geminiApiKey) {
@@ -304,8 +302,6 @@ export default function ExtractPage() {
         } else {
           toast.info('All entries already exist in your sheet.');
         }
-
-        invalidateCache();
 
         // Auto-generate groups for new VOCAB entries in background
         const newVocab = parsed.filter((e) => e.category === 'VOCAB');

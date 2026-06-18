@@ -200,10 +200,9 @@ export async function saveUniqueEntries(
 
   if (unique.length > 0) {
     await appendEntries(webAppUrl, unique);
+    // Update cache with new entries (keeps cache warm — no spinner on next navigation)
+    writeCache([...existing, ...unique], webAppUrl);
   }
-
-  // Invalidate cache so next navigation fetches fresh data
-  invalidateCache();
 
   return { added: unique.length, skipped, errors: 0 };
 }
