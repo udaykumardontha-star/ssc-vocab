@@ -58,8 +58,8 @@ export function isCacheStale(cache: VocabCache): boolean {
 function rowToEntry(row: string[], category: Category): VocabEntry | null {
   const word = String(row[0] ?? '').trim();
   const trigger = String(row[1] ?? '').trim();
-  // CreatedAt: read from column Z (index 25) — new rows
-  // Fallback to column C (index 2) — rows saved before the column Z fix
+  // CreatedAt: column Z (index 25) — invisible, far from visible columns A & B
+  // Fallback to column C (index 2) for old rows saved before the Z migration
   const createdAt = String(row[25] ?? row[2] ?? '').trim();
 
   if (!word || !trigger) return null;
