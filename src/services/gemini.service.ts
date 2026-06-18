@@ -160,7 +160,7 @@ Only include vocabulary sections that have entries. No extra text.`;
 
 // ─── Gemini Service ───────────────────────────────────────────────────────────
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-3.5-flash';
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 interface GeminiContent {
