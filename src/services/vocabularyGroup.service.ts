@@ -315,3 +315,91 @@ export function searchGroups(
       g.oppositeWords.some((w) => w.toLowerCase().includes(q))
   );
 }
+
+// ─── Auto-generate groups after extraction ────────────────────────────────────
+
+/**
+ * Automatically generate vocabulary groups for newly extracted VOCAB entries.
+ * - Runs entirely in the background (fire-and-forget, never throws to caller).
+ * - Skips words that already have a group in the LocalStorage cache.
+ * - Processes one word at a time with a 600ms delay to avoid Gemini rate limits.
+ * - Updates cache incrementally so groups appear immediately if user navigates.
+ *
+ * @param vocabEntries  Only VOCAB entries from the latest extraction
+ * @param webAppUrl     Google Apps Script URL
+ * @param apiKey        Gemini API key
+ * @param onProgress    Optional callback: (done, total) => void
+ */
+export async function autoGenerateGroups(
+  vocabEntries: { word: string; trigger: string }[],
+  webAppUrl: string,
+  apiKey: string,
+  onProgress?: (done: number, total: number) => void
+): Promise<void> {
+  if (!vocabEntries.length || !webAppUrl || !apiKey) return;
+
+  // Read existing cache to skip already-grouped words
+  const cache = readGroupsCache(webAppUrl);
+  const existingWords = new Set(
+    (cache?.data ?? []).map((r) => r.word.toLowerCase().trim())
+  );
+
+  // Filter out words that already have a group
+  const toProcess = vocabEntries.filter(
+    (e) => !existingWords.has(e.word.toLowerCase().trim())
+  );
+
+  if (toProcess.length === 0) return;
+
+  let currentCache = cache?.data ?? [];
+
+  for (let i = 0; i < toProcess.length; i++) {
+    const { word, trigger } = toProcess[i];
+
+    try {
+      const group = await generateGroup(word, trigger, apiKey);
+
+      if (group) {
+        // Build flat rows for cache update
+        const now = new Date().toISOString();
+        const newRows: VocabularyGroupWord[] = [
+          ...group.relatedWords.map((w) => ({
+            groupName: group.groupName,
+            word: w,
+            trigger: group.trigger,
+            wordType: 'RELATED' as const,
+            sourceWord: group.sourceWord,
+            createdAt: now,
+          })),
+          ...group.oppositeWords.map((w) => ({
+            groupName: group.groupName,
+            word: w,
+            trigger: group.trigger,
+            wordType: 'OPPOSITE' as const,
+            sourceWord: group.sourceWord,
+            createdAt: now,
+          })),
+        ];
+
+        // Update in-memory cache incrementally
+        currentCache = [...currentCache, ...newRows];
+        writeGroupsCache(currentCache, webAppUrl);
+
+        // Save to sheet in background (don't await — keep processing)
+        saveGroup(group, webAppUrl).catch(() => {
+          // Silent — sheet save failure doesn't stop group generation
+        });
+      }
+    } catch {
+      // Silent per-word failure — continue with next word
+    }
+
+    onProgress?.(i + 1, toProcess.length);
+
+    // Rate limit: wait 600ms between Gemini calls (except after last one)
+    if (i < toProcess.length - 1) {
+      await new Promise((r) => setTimeout(r, 600));
+    }
+  }
+}
+

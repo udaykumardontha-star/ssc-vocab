@@ -9,6 +9,7 @@ import { ResultsPanel } from '@/components/extract/ResultsPanel';
 import { useSettings } from '@/hooks/useSettings';
 import { extractFromText, extractFromImage, parseGeminiOutput } from '@/services/gemini.service';
 import { saveUniqueEntries, invalidateCache } from '@/services/googleSheets.service';
+import { autoGenerateGroups } from '@/services/vocabularyGroup.service';
 import {
   chunkSelectedPages,
   processPdfChunks,
@@ -220,6 +221,22 @@ export default function ExtractPage() {
           }
 
           invalidateCache();
+
+          // Auto-generate groups for new VOCAB entries in background
+          const newVocab = allEntries.filter((e) => e.category === 'VOCAB');
+          if (newVocab.length > 0 && settings.geminiApiKey) {
+            toast.info(`Generating groups for ${newVocab.length} vocab word${newVocab.length > 1 ? 's' : ''}...`, { duration: 3000 });
+            autoGenerateGroups(
+              newVocab,
+              settings.webAppUrl,
+              settings.geminiApiKey,
+              (done, total) => {
+                if (done === total) {
+                  toast.success(`${total} vocab group${total > 1 ? 's' : ''} generated!`);
+                }
+              }
+            );
+          }
         } catch (saveErr) {
           toast.error(saveErr instanceof Error ? saveErr.message : 'Failed to save to Google Sheets');
         } finally {
@@ -289,6 +306,22 @@ export default function ExtractPage() {
         }
 
         invalidateCache();
+
+        // Auto-generate groups for new VOCAB entries in background
+        const newVocab = parsed.filter((e) => e.category === 'VOCAB');
+        if (newVocab.length > 0 && settings.geminiApiKey) {
+          toast.info(`Generating groups for ${newVocab.length} vocab word${newVocab.length > 1 ? 's' : ''}...`, { duration: 3000 });
+          autoGenerateGroups(
+            newVocab,
+            settings.webAppUrl,
+            settings.geminiApiKey,
+            (done, total) => {
+              if (done === total) {
+                toast.success(`${total} vocab group${total > 1 ? 's' : ''} generated!`);
+              }
+            }
+          );
+        }
       } catch (saveErr) {
         const msg = saveErr instanceof Error ? saveErr.message : 'Failed to save to Google Sheets';
         toast.error(msg);
