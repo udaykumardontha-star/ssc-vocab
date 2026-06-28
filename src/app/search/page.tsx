@@ -166,17 +166,39 @@ export default function SearchPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by word or meaning... (e.g. 'Cynic', 'avoid topic')"
-          className="pl-10 h-11 bg-card border-border text-sm"
+          className={cn('pl-10 h-11 bg-card border-border text-sm', query ? 'pr-24' : 'pr-4')}
           autoFocus
         />
-        {query && (
-          <button
-            onClick={() => setQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
-          >
-            ✕
-          </button>
-        )}
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+          {query && settings.geminiApiKey && settings.webAppUrl && (
+            <button
+              onClick={handleQuickExtract}
+              disabled={isExtracting}
+              className={cn(
+                'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all',
+                'bg-violet-600/25 border border-violet-500/40 text-violet-300',
+                'hover:bg-violet-600/40 hover:border-violet-500/60 hover:text-violet-200',
+                'disabled:opacity-50 disabled:cursor-not-allowed'
+              )}
+              title={`Extract "${query}" using AI`}
+            >
+              {isExtracting ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Sparkles className="w-3 h-3" />
+              )}
+              {isExtracting ? '' : 'Extract'}
+            </button>
+          )}
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              className="text-muted-foreground hover:text-foreground text-xs px-1"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Category Filters */}
@@ -231,26 +253,6 @@ export default function SearchPage() {
               <p className="text-sm text-muted-foreground">
                 {query ? `No entries found for "${query}"` : 'No entries yet. Go to Extract to add vocabulary.'}
               </p>
-              {query && settings.geminiApiKey && settings.webAppUrl && (
-                <button
-                  onClick={handleQuickExtract}
-                  disabled={isExtracting}
-                  className={cn(
-                    'mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-                    'bg-violet-600/20 border border-violet-500/40 text-violet-300',
-                    'hover:bg-violet-600/30 hover:border-violet-500/60 hover:text-violet-200 hover:scale-[1.02]',
-                    'active:scale-[0.98]',
-                    'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100'
-                  )}
-                >
-                  {isExtracting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4" />
-                  )}
-                  {isExtracting ? 'Extracting...' : `Extract "${query.length > 20 ? query.slice(0, 20) + '…' : query}"`}
-                </button>
-              )}
             </div>
           ) : (
             <div className="rounded-xl border border-border bg-card overflow-hidden">
