@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import { useVocabData } from '@/hooks/useVocabData';
 import { useVocabGroups } from '@/hooks/useVocabGroups';
 import { Category, VocabEntry } from '@/types';
 import { VocabularyGroup } from '@/types/vocabulary-group';
-import { Search, RefreshCw, Filter, Layers } from 'lucide-react';
+import { Search, RefreshCw, Filter, Layers, Sparkles, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { VocabularyGroupDialog } from '@/components/groups/VocabularyGroupDialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { extractFromText, parseGeminiOutput } from '@/services/gemini.service';
+import { saveUniqueEntries } from '@/services/googleSheets.service';
 
 type CategoryFilter = 'all' | Category;
 
@@ -44,6 +46,8 @@ export default function SearchPage() {
 
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [isExtracting, setIsExtracting] = useState(false);
+  const extractingRef = useRef(false);
 
   // ── Vocabulary Group Dialog state ──────────────────────────────────────────
   const [dialogEntry, setDialogEntry] = useState<VocabEntry | null>(null);
@@ -101,6 +105,40 @@ export default function SearchPage() {
     setDialogError(null);
     setDialogLoading(false);
   }, []);
+
+  // ── Quick Extract from search ─────────────────────────────────────────────
+  const handleQuickExtract = useCallback(async () => {
+    if (!settings.geminiApiKey || !settings.webAppUrl || extractingRef.current) return;
+    const searchTerm = query.trim();
+    if (!searchTerm) return;
+
+    extractingRef.current = true;
+    setIsExtracting(true);
+    toast.info(`Extracting "${searchTerm}"...`, { duration: 2000 });
+
+    try {
+      const raw = await extractFromText(searchTerm, 'auto', settings.geminiApiKey);
+      const parsed = parseGeminiOutput(raw);
+
+      if (parsed.length === 0) {
+        toast.warning(`No vocabulary found for "${searchTerm}"`);
+        return;
+      }
+
+      const result = await saveUniqueEntries(settings.webAppUrl, parsed);
+      if (result.added > 0) {
+        toast.success(`Added ${result.added} entr${result.added === 1 ? 'y' : 'ies'} for "${searchTerm}"`);
+        refresh();
+      } else {
+        toast.info(`"${searchTerm}" already exists in your database`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Extraction failed');
+    } finally {
+      setIsExtracting(false);
+      extractingRef.current = false;
+    }
+  }, [query, settings.geminiApiKey, settings.webAppUrl, refresh]);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -193,6 +231,26 @@ export default function SearchPage() {
               <p className="text-sm text-muted-foreground">
                 {query ? `No entries found for "${query}"` : 'No entries yet. Go to Extract to add vocabulary.'}
               </p>
+              {query && settings.geminiApiKey && settings.webAppUrl && (
+                <button
+                  onClick={handleQuickExtract}
+                  disabled={isExtracting}
+                  className={cn(
+                    'mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                    'bg-violet-600/20 border border-violet-500/40 text-violet-300',
+                    'hover:bg-violet-600/30 hover:border-violet-500/60 hover:text-violet-200 hover:scale-[1.02]',
+                    'active:scale-[0.98]',
+                    'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100'
+                  )}
+                >
+                  {isExtracting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  {isExtracting ? 'Extracting...' : `Extract "${query.length > 20 ? query.slice(0, 20) + '…' : query}"`}
+                </button>
+              )}
             </div>
           ) : (
             <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -262,12 +320,12 @@ export default function SearchPage() {
 
 function highlightMatch(text: string, query: string): React.ReactNode {
   if (!query.trim()) return text;
-  const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
-  const parts = text.split(regex);
+  const escaped = escapeRegex(query);
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
   return (
     <>
       {parts.map((part, i) =>
-        regex.test(part) ? (
+        part.toLowerCase() === query.toLowerCase() ? (
           <mark key={i} className="bg-violet-500/30 text-violet-200 rounded px-0.5">
             {part}
           </mark>
