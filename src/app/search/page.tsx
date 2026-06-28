@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useDeferredValue } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import { useVocabData } from '@/hooks/useVocabData';
 import { useVocabGroups } from '@/hooks/useVocabGroups';
@@ -55,15 +55,19 @@ export default function SearchPage() {
   const [dialogLoading, setDialogLoading] = useState(false);
   const [dialogError, setDialogError] = useState<string | null>(null);
 
+  const deferredQuery = useDeferredValue(query);
+
   const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim();
+    const q = deferredQuery.toLowerCase().trim();
     return entries.filter((e) => {
       const matchQuery =
         !q || e.word.toLowerCase().includes(q) || e.trigger.toLowerCase().includes(q);
       const matchCat = categoryFilter === 'all' || e.category === categoryFilter;
       return matchQuery && matchCat;
     });
-  }, [entries, query, categoryFilter]);
+  }, [entries, deferredQuery, categoryFilter]);
+
+  const displayedResults = useMemo(() => filtered.slice(0, 100), [filtered]);
 
   // ── Open vocabulary group dialog ───────────────────────────────────────────
   const handleViewGroup = useCallback(async (entry: VocabEntry) => {
@@ -257,10 +261,10 @@ export default function SearchPage() {
           ) : (
             <div className="rounded-xl border border-border bg-card overflow-hidden">
               <div className="divide-y divide-border">
-                {filtered.map((entry, i) => (
+                {displayedResults.map((entry, i) => (
                   <div
                     key={`${entry.category}-${entry.word}-${i}`}
-                    className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 px-3 sm:px-5 py-3 sm:py-3.5 hover:bg-accent/50 transition-colors animate-fade-in-up group"
+                    className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 px-3 sm:px-5 py-3 sm:py-3.5 hover:bg-accent/50 transition-colors group"
                   >
                     {/* Badge + word */}
                     <div className="flex items-center gap-2 sm:contents">
@@ -301,6 +305,11 @@ export default function SearchPage() {
                 ))}
               </div>
             </div>
+          )}
+          {filtered.length > 100 && (
+            <p className="text-xs text-muted-foreground text-center mt-3">
+              Showing 100 of {filtered.length} results. Refine your search to see more.
+            </p>
           )}
         </div>
       )}
