@@ -187,7 +187,7 @@ export default function SearchPage() {
               ) : (
                 <Sparkles className="w-3 h-3" />
               )}
-              {isExtracting ? '' : 'Extract'}
+              Extract
             </button>
           )}
           {query && (
